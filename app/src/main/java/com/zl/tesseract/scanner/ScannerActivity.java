@@ -9,6 +9,7 @@ import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.hardware.Camera;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Vibrator;
@@ -21,6 +22,8 @@ import android.view.ViewStub;
 import android.view.Window;
 import android.widget.Button;
 import android.widget.CompoundButton;
+import android.widget.EditText;
+import android.widget.ListView;
 import android.widget.Switch;
 import android.widget.Toast;
 
@@ -36,12 +39,15 @@ import com.zl.tesseract.scanner.utils.Tools;
 import com.zl.tesseract.scanner.view.ImageDialog;
 import com.zl.tesseract.scanner.view.ScannerFinderView;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 二维码扫描类。
  */
-public class ScannerActivity extends Activity implements Callback, Camera.PictureCallback, Camera.ShutterCallback{
+public class ScannerActivity extends Activity implements Callback, Camera.PictureCallback, Camera.ShutterCallback {
 
     private CaptureActivityHandler mCaptureActivityHandler;
     private boolean mHasSurface;
@@ -51,20 +57,85 @@ public class ScannerActivity extends Activity implements Callback, Camera.Pictur
     private ViewStub mSurfaceViewStub;
     private DecodeManager mDecodeManager = new DecodeManager();
     private Switch switch1;
-    private Button bt;
+    private Button bt, addno_BT;
+
+    EditText editno_ET;
 
     private ProgressDialog progressDialog;
     private Bitmap bmp;
+
+    ScannerActivity _this;
+
+    private List<String> strings = new ArrayList<>();
+
+    String filePath = "/a/NO_data.csv";
+
+    private ListView allno_LV;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scanner);
+        _this = this;
         initView();
+        loadData();
         initData();
     }
 
+    ItemAdapter itemAdapter = null;
+
+    private void loadData() {
+        String s = Environment.getExternalStorageDirectory().getPath() + "/a";
+        File file = new File(s);
+        if (!file.exists())
+            file.mkdir();
+        strings = CSVUtil.importCsv(new File(Environment.getExternalStorageDirectory().getPath() + filePath));
+
+        itemAdapter = new ItemAdapter(_this, strings);
+        itemAdapter.addDelListener(new TesseractCallback() {
+            @Override
+            public void succeed(String result) {
+                if (strings.contains(result)) {
+                    strings.remove(result);
+                    if (CSVUtil.exportCsv(Environment.getExternalStorageDirectory().getPath() + filePath, strings)) {
+                        Toast.makeText(_this, result + " 删除成功！", Toast.LENGTH_SHORT).show();
+                        itemAdapter.notifyDataSetChanged();
+                    } else {
+                        strings.add(result);
+                        Toast.makeText(_this, result + " 删除失败！", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }
+
+            @Override
+            public void fail() {
+
+            }
+        });
+        allno_LV.setAdapter(itemAdapter);
+    }
+
     private void initView() {
+        allno_LV = findViewById(R.id.allno_LV);
+        addno_BT = findViewById(R.id.addno_BT);
+        editno_ET = findViewById(R.id.editno_ET);
+
+
+        addno_BT.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String result = editno_ET.getText().toString();
+                if (TextUtils.isEmpty(result)) {
+                    Toast.makeText(_this, "请输入内容！", Toast.LENGTH_SHORT).show();
+                    return;
+                } else {
+                    addNo(result);
+                }
+            }
+        });
+
+
         mQrCodeFinderView = (ScannerFinderView) findViewById(R.id.qr_code_view_finder);
         mSurfaceViewStub = (ViewStub) findViewById(R.id.qr_code_view_stub);
         switch1 = (Switch) findViewById(R.id.switch1);
@@ -201,7 +272,8 @@ public class ScannerActivity extends Activity implements Callback, Camera.Pictur
     }
 
     @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {}
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+    }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
@@ -271,9 +343,10 @@ public class ScannerActivity extends Activity implements Callback, Camera.Pictur
     }
 
     @Override
-    public void onShutter() {}
+    public void onShutter() {
+    }
 
-    private void qrSucceed(String result){
+    private void qrSucceed(String result) {
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle(R.string.notification)
                 .setMessage(result)
                 .setPositiveButton(R.string.positive_button_confirm, new DialogInterface.OnClickListener() {
@@ -292,27 +365,60 @@ public class ScannerActivity extends Activity implements Callback, Camera.Pictur
         });
     }
 
-    private void phoneSucceed(String result, Bitmap bitmap){
+    private void phoneSucceed(String result, Bitmap bitmap) {
         ImageDialog dialog = new ImageDialog(this);
         dialog.addBitmap(bitmap);
-        dialog.addTitle(TextUtils.isEmpty(result) ? "未识别到手机号码" : result);
-        dialog.show();
+        dialog.addTitle(TextUtils.isEmpty(result) ? "未识别到号码" : result);
+
+
+        dialog.addListener(new TesseractCallback() {
+            @Override
+            public void succeed(String result) {
+                addNo(result);
+            }
+
+            @Override
+            public void fail() {
+
+            }
+        });
+
         dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
             @Override
             public void onDismiss(DialogInterface dialog) {
                 restartPreview();
             }
         });
+        dialog.show();
     }
 
-    private Handler mHandler = new Handler(){
+    private void addNo(String result) {
+        if (TextUtils.isEmpty(result)) {
+            Toast.makeText(_this, "数据为空，重新扫描！", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (strings.contains(result)) {
+            Toast.makeText(_this, result + " 已添加过！", Toast.LENGTH_SHORT).show();
+        } else {
+            strings.add(result);
+            if (CSVUtil.exportCsv(Environment.getExternalStorageDirectory().getPath() + filePath, strings)) {
+                Toast.makeText(_this, result + " 添加成功！", Toast.LENGTH_SHORT).show();
+                itemAdapter.notifyDataSetChanged();
+            } else {
+                strings.remove(result);
+                Toast.makeText(_this, result + " 添加失败！", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private Handler mHandler = new Handler() {
 
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
             bt.setEnabled(true);
             cancelProgressDialog();
-            switch (msg.what){
+            switch (msg.what) {
                 case 0:
                     phoneSucceed((String) msg.obj, bmp);
                     break;
@@ -336,7 +442,7 @@ public class ScannerActivity extends Activity implements Callback, Camera.Pictur
     }
 
     public void cancelProgressDialog() {
-        if (progressDialog != null){
+        if (progressDialog != null) {
             if (progressDialog.isShowing()) {
                 progressDialog.dismiss();
             }

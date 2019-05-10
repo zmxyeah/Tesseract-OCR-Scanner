@@ -35,7 +35,7 @@ public class Tools {
     }
 
     public static int calculateSampleSize(int srcWidth, int srcHeight, int dstWidth, int dstHeight,
-                                          ScalingLogic scalingLogic) {
+            ScalingLogic scalingLogic) {
         if (scalingLogic == ScalingLogic.FIT) {
             final float srcAspect = (float) srcWidth / (float) srcHeight;
             final float dstAspect = (float) dstWidth / (float) dstHeight;
@@ -58,7 +58,7 @@ public class Tools {
     }
 
     public static Bitmap decodeByteArray(byte[] bytes, int dstWidth, int dstHeight,
-                                        ScalingLogic scalingLogic) {
+            ScalingLogic scalingLogic) {
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inJustDecodeBounds = true;
         BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
@@ -71,7 +71,7 @@ public class Tools {
     }
 
     public static Rect calculateSrcRect(int srcWidth, int srcHeight, int dstWidth, int dstHeight,
-                                        ScalingLogic scalingLogic) {
+            ScalingLogic scalingLogic) {
         if (scalingLogic == ScalingLogic.CROP) {
             final float srcAspect = (float) srcWidth / (float) srcHeight;
             final float dstAspect = (float) dstWidth / (float) dstHeight;
@@ -91,7 +91,7 @@ public class Tools {
     }
 
     public static Rect calculateDstRect(int srcWidth, int srcHeight, int dstWidth, int dstHeight,
-                                        ScalingLogic scalingLogic) {
+            ScalingLogic scalingLogic) {
         if (scalingLogic == ScalingLogic.FIT) {
             final float srcAspect = (float) srcWidth / (float) srcHeight;
             final float dstAspect = (float) dstWidth / (float) dstHeight;
@@ -107,7 +107,7 @@ public class Tools {
     }
 
     public static Bitmap createScaledBitmap(Bitmap unscaledBitmap, int dstWidth, int dstHeight,
-                                            ScalingLogic scalingLogic) {
+            ScalingLogic scalingLogic) {
         Rect srcRect = calculateSrcRect(unscaledBitmap.getWidth(), unscaledBitmap.getHeight(),
                 dstWidth, dstHeight, scalingLogic);
         Rect dstRect = calculateDstRect(unscaledBitmap.getWidth(), unscaledBitmap.getHeight(),
@@ -120,7 +120,7 @@ public class Tools {
         return scaledBitmap;
     }
 
-    public static Bitmap getFocusedBitmap(Context context, Camera camera, byte[] data, Rect box){
+    public static Bitmap getFocusedBitmap(Context context, Camera camera, byte[] data, Rect box) {
         Point ScrRes = ScreenUtils.getScreenResolution(context);
         Point CamRes = CameraConfigurationUtils.findBestPreviewSizeValue(camera.getParameters(), ScrRes);
 
@@ -150,7 +150,7 @@ public class Tools {
         Bitmap bmp = Tools.createScaledBitmap(unscaledBitmap, X, Y, ScalingLogic.CROP);
         unscaledBitmap.recycle();
 
-        if (CW > CH){
+        if (CW > CH) {
             bmp = Tools.rotateBitmap(bmp, 90);
         }
 
@@ -169,25 +169,28 @@ public class Tools {
         return res;
     }
 
-    private static Pattern pattern = Pattern.compile("(1|861)\\d{10}$*");
+    //    private static Pattern pattern = Pattern.compile("(1|861)\\d{10}$*");
+    private static Pattern pattern = Pattern.compile("\\d{7}$*");
 
     private static StringBuilder bf = new StringBuilder();
 
-    public static String getTelNum(String sParam){
-        if(TextUtils.isEmpty(sParam)){
+    public static String getTelNum(String sParam) {
+        String result = "";
+        if (TextUtils.isEmpty(sParam)) {
             return "";
         }
-        
+
         Matcher matcher = pattern.matcher(sParam.trim());
         bf.delete(0, bf.length());
 
         while (matcher.find()) {
             bf.append(matcher.group()).append("\n");
+            result = matcher.group();
         }
         int len = bf.length();
         if (len > 0) {
             bf.deleteCharAt(len - 1);
         }
-        return bf.toString();
+        return result;
     }
 }
